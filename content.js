@@ -33,6 +33,14 @@
   }
   const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
 
+  function deepQueryAll(selector, root = document) {
+    const results = [...root.querySelectorAll(selector)];
+    for (const element of root.querySelectorAll("*")) {
+      if (element.shadowRoot) results.push(...deepQueryAll(selector, element.shadowRoot));
+    }
+    return [...new Set(results)];
+  }
+
   function createUi() {
     if (panel?.isConnected) return;
 
@@ -126,7 +134,9 @@
       "button[aria-label*='字幕']",
       "button[aria-label*='Untertitel' i]"
     ];
-    return selectors.map((selector) => document.querySelector(selector)).find(Boolean);
+    return selectors
+      .flatMap((selector) => isMax ? deepQueryAll(selector) : [document.querySelector(selector)])
+      .find(Boolean);
   }
 
   function subtitleMenuItems() {
@@ -139,15 +149,15 @@
         "[data-testid*='subtitle-option' i]",
         "[data-testid*='caption-option' i]"
       ].join(",");
-      candidates = [...document.querySelectorAll(selector)];
+      candidates = deepQueryAll(selector);
 
       if (!candidates.length) {
-        const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,[role='heading'],span,div")]
+        const headings = deepQueryAll("h1,h2,h3,h4,h5,[role='heading'],span,div")
           .filter((node) => {
             const text = normalize(node.textContent);
             const rect = node.getBoundingClientRect();
             return rect.width > 0 && rect.height > 0
-              && /^(subtitles?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕)$/.test(text);
+              && /^(subtitles?(?:\s*&\s*captions?)?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕)$/.test(text);
           });
         for (const heading of headings) {
           let container = heading.parentElement;
@@ -166,6 +176,31 @@
             }
           }
           if (candidates.length) break;
+        }
+      }
+
+      if (!candidates.length) {
+        const menuRoots = deepQueryAll(
+          "[role='dialog'],[role='menu'],[aria-modal='true'],[data-testid*='subtitle' i],[data-testid*='caption' i]"
+        ).filter((node) => {
+          const rect = node.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0
+            && /(subtitles?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕)/i
+              .test(node.innerText || "");
+        });
+        for (const root of menuRoots) {
+          const options = [...root.querySelectorAll(
+            "button,[role='radio'],[role='option'],[role='menuitem'],li"
+          )].filter((item) => {
+            const text = item.innerText?.trim() || "";
+            const rect = item.getBoundingClientRect();
+            return text && text.length <= 100 && rect.width > 0 && rect.height > 0
+              && !/(subtitles?|captions?|audio|settings|close|back)$/i.test(text);
+          });
+          if (options.length) {
+            candidates = options;
+            break;
+          }
         }
       }
     } else {
@@ -212,7 +247,7 @@
     }
     menuDiscoveryRunning = true;
     button.click();
-    await delay(350);
+    await delay(isMax ? 900 : 350);
     const items = importNetflixMenu();
     button.click();
     menuDiscoveryRunning = false;
@@ -223,7 +258,7 @@
     let button = netflixMenuButton();
     if (!subtitleMenuItems().length && button) {
       button.click();
-      await delay(300);
+      await delay(isMax ? 900 : 300);
     }
     const items = importNetflixMenu();
     const wanted = canonicalLanguage(language);
@@ -256,7 +291,7 @@
     button = netflixMenuButton();
     if (button && !subtitleMenuItems().length) {
       button.click();
-      await delay(350);
+      await delay(isMax ? 900 : 350);
     }
     const rebuiltItems = subtitleMenuItems();
     const restored = rebuiltItems.find((item) =>
