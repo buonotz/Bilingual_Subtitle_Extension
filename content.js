@@ -31,6 +31,43 @@
     if (/^zh-(tw|hant)$/.test(key) || /^(chinese traditional|繁體中文|繁体中文|中文 繁體)$/.test(words)) return "zh-tw";
     return key;
   }
+
+  const LANGUAGE_CODES = new Set([
+    "ar", "bg", "bn", "ca", "cs", "da", "de", "el", "en", "es", "et",
+    "fa", "fi", "fil", "fr", "he", "hi", "hr", "hu", "id", "is", "it",
+    "ja", "ko", "lt", "lv", "ms", "nl", "no", "pl", "pt", "ro", "ru",
+    "sk", "sl", "sr", "sv", "sw", "ta", "te", "th", "tr", "uk", "ur",
+    "vi", "zh", "zh-cn", "zh-tw", "zh-hans", "zh-hant"
+  ]);
+  const LANGUAGE_NAMES = new Set([
+    "arabic", "العربية", "bulgarian", "বাংলা", "bengali", "catalan",
+    "chinese", "chinese simplified", "chinese traditional", "简体中文",
+    "繁體中文", "繁体中文", "中文", "croatian", "czech", "danish",
+    "deutsch", "german", "dutch", "nederlands", "english", "estonian",
+    "farsi", "persian", "filipino", "finnish", "french", "français",
+    "greek", "ελληνικά", "hebrew", "עברית", "hindi", "हिन्दी",
+    "hungarian", "icelandic", "indonesian", "bahasa indonesia", "italian",
+    "italiano", "japanese", "日本語", "korean", "한국어", "latvian",
+    "lithuanian", "malay", "bahasa melayu", "norwegian", "norsk",
+    "polish", "polski", "portuguese", "português", "romanian", "russian",
+    "русский", "serbian", "slovak", "slovenian", "spanish", "español",
+    "swedish", "svenska", "thai", "ไทย", "turkish", "türkçe",
+    "ukrainian", "українська", "urdu", "vietnamese", "tiếng việt"
+  ]);
+
+  function isPlausibleLanguageOption(item) {
+    if (!isMax) return true;
+    const raw = item.innerText?.trim() || item.textContent?.trim() || "";
+    const dataLanguage = item.getAttribute("lang")
+      || item.dataset.language || item.dataset.languageCode || item.getAttribute("value") || "";
+    const normalizedData = canonicalLanguage(dataLanguage);
+    if (LANGUAGE_CODES.has(normalizedData)) return true;
+    const cleaned = canonicalLanguage(raw)
+      .replace(/\b(cc|sdh|captions?|subtitles?|audio description)\b/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    return LANGUAGE_CODES.has(cleaned) || LANGUAGE_NAMES.has(cleaned);
+  }
   const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
 
   function deepQueryAll(selector, root = document) {
@@ -213,6 +250,7 @@
       const style = getComputedStyle(item);
       return rect.width > 0 && rect.height > 0
         && style.display !== "none" && style.visibility !== "hidden"
+        && isPlausibleLanguageOption(item)
         && !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕|subtitles?|captions?|untertitel)$/i.test(value);
     });
   }
