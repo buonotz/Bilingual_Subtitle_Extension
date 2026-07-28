@@ -6,6 +6,7 @@
 
   const seen = new Set();
   let requestedLanguage = "";
+  const isMediaSegment = (url) => /media\.max\.com\/[^?]*\/[va]\/[^?]*\.mp4(?:\?|$)/i.test(url);
   const cleanText = (value) => String(value || "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<[^>]+>/g, "")
@@ -186,7 +187,17 @@
     if (!body || body.length > 15_000_000) return;
     let cues = [];
     const embedded = [];
-    const trimmed = body.trim();
+    let trimmed = body.trim();
+    // Max can package TTML subtitles in fragmented MP4 (stpp/mdat). Keep only
+    // the embedded XML document and discard the surrounding ISO-BMFF bytes.
+    if (/\.mp4(?:\?|$)/i.test(url) || /[\u0000-\u0008]/.test(trimmed.slice(0, 100))) {
+      const ttStart = trimmed.search(/<tt(?:\s|>)/i);
+      const ttEndMatch = /<\/tt\s*>/ig;
+      let ttEnd = -1;
+      let closing;
+      while ((closing = ttEndMatch.exec(trimmed))) ttEnd = closing.index + closing[0].length;
+      if (ttStart >= 0 && ttEnd > ttStart) trimmed = trimmed.slice(ttStart, ttEnd);
+    }
     let format = "unknown";
     try {
       if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
@@ -199,14 +210,15 @@
       } else if (trimmed.includes("-->")) {
         format = "WebVTT";
         cues = parseVtt(trimmed);
-      } else if (/<(?:tt|p)[\s>]/i.test(trimmed)) {
+      } else if (/<tt(?:\s|>)[^>]*(?:xmlns|xml:lang|ttp:)|<(?:[\w-]+:)?p\b[^>]*(?:begin|end|dur|t)=/i.test(trimmed)) {
         format = "TTML";
         cues = parseXml(trimmed);
       }
     } catch (_) {
       return;
     }
-    if (!cues.length && (trimmed.includes("-->") || /<(?:tt|p)[\s>]/i.test(trimmed))) {
+    if (!cues.length && (trimmed.includes("-->")
+      || /<tt(?:\s|>)[^>]*(?:xmlns|xml:lang|ttp:)|<(?:[\w-]+:)?p\b[^>]*(?:begin|end|dur|t)=/i.test(trimmed))) {
       window.postMessage({
         source: "netflix-bilingual-subtitles",
         type: "parse-status",
@@ -240,7 +252,9 @@
   window.fetch = async function (...args) {
     const response = await originalFetch.apply(this, args);
     const url = response.url || String(args[0]?.url || args[0] || "");
-    response.clone().text().then((body) => publish(url, body)).catch(() => {});
+    if (!isMediaSegment(url)) {
+      response.clone().text().then((body) => publish(url, body)).catch(() => {});
+    }
     return response;
   };
 
@@ -254,6 +268,7 @@
     this.addEventListener("load", () => {
       try {
         const url = this.responseURL || this.__nbsUrl;
+        if (isMediaSegment(url)) return;
         if (!this.responseType || this.responseType === "text") {
           publish(url, this.responseText);
         } else if (this.responseType === "arraybuffer" && this.response) {

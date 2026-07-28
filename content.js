@@ -603,6 +603,7 @@
     lastDiagnostic = [
       `platform=${platform}`,
       `url=${message.url || ""}`,
+      `mime=${message.mime || ""}`,
       `language=${message.language || ""}`,
       body.slice(0, 3000)
     ].join("\n");

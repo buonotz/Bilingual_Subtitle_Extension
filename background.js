@@ -10,9 +10,11 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const mime = String(response.mimeType || "").toLowerCase();
     const netflixResource = /nflxvideo\.net|netflix\.com/i.test(url)
       && /text|xml|json|vtt|ttml|octet-stream/.test(mime);
-    const maxResource = session.platform === "max"
+    const maxVideoOrAudio = /\/[va]\/[^?]*\.mp4(?:\?|$)/i.test(url)
+      || /(?:\?|&)CMCD=[^&]*(?:ot%3D|ot=)[av](?:%2C|,|&)/i.test(url);
+    const maxResource = session.platform === "max" && !maxVideoOrAudio
       && (/vtt|ttml|xml/.test(mime)
-        || /subtitle|caption|timed.?text|\.vtt(?:\?|$)|\.ttml(?:\?|$)/i.test(url));
+        || /\/t\/[^?]*\.mp4(?:\?|$)|subtitle|caption|timed.?text|\.vtt(?:\?|$)|\.ttml(?:\?|$)/i.test(url));
     const likelySubtitle = netflixResource || maxResource;
     const inTargetWindow = session.targetStartedAt
       && Date.now() - session.targetStartedAt < 1400;
@@ -40,6 +42,7 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
       url: request.url,
       body: result.body,
       base64Encoded: Boolean(result.base64Encoded),
+      mime: request.mime,
       language: session.language
     });
   } catch (_) {}
