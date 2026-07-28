@@ -372,6 +372,10 @@
       } catch (_) {}
       return;
     }
+    if (event.data?.type === "end-language-capture") {
+      requestedLanguage = "";
+      return;
+    }
     if (event.data?.type !== "load-language") return;
 
     const wanted = String(event.data.language || "").toLowerCase();

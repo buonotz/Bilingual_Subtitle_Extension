@@ -330,6 +330,12 @@
     target.click();
     await delay(1500);
 
+    await chrome.runtime.sendMessage({ type: "nbs-end-target" }).catch(() => {});
+    window.postMessage({
+      source: "netflix-bilingual-subtitles-content",
+      type: "end-language-capture"
+    }, "*");
+
     // Netflix closes and rebuilds the menu after a track change, so the old
     // element reference is no longer usable. Reopen and find the original item.
     button = netflixMenuButton();

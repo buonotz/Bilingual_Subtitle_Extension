@@ -103,3 +103,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   session.targetStartedAt = Date.now();
   sendResponse({ ok: true });
 });
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message?.type !== "nbs-end-target" || !sender.tab?.id) return;
+  const session = sessions.get(sender.tab.id);
+  if (session) {
+    session.targetStartedAt = 0;
+    session.requests.clear();
+  }
+  sendResponse({ ok: Boolean(session) });
+});
