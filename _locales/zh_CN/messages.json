@@ -25,5 +25,7 @@
   "subtitleNumber": { "message": "字幕 $1" },
   "parsedSubtitleCues": { "message": "已解析 $1 条第二字幕" },
   "subtitleTimeParseFailed": { "message": "捕获到 $1 字幕响应，但未能解析时间码" },
-  "newVideoDetected": { "message": "检测到新视频，正在重新加载第二字幕…" }
+  "newVideoDetected": { "message": "检测到新视频，正在重新加载第二字幕…" },
+  "copyDiagnostics": { "message": "复制诊断信息" },
+  "diagnosticsCopied": { "message": "诊断信息已复制" }
 }

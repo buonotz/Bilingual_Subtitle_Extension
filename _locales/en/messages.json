@@ -25,5 +25,7 @@
   "subtitleNumber": { "message": "Subtitle $1" },
   "parsedSubtitleCues": { "message": "Parsed $1 second-subtitle cues" },
   "subtitleTimeParseFailed": { "message": "A $1 subtitle response was captured, but its timing could not be parsed." },
-  "newVideoDetected": { "message": "New video detected; reloading the second subtitle…" }
+  "newVideoDetected": { "message": "New video detected; reloading the second subtitle…" },
+  "copyDiagnostics": { "message": "Copy diagnostics" },
+  "diagnosticsCopied": { "message": "Diagnostics copied" }
 }

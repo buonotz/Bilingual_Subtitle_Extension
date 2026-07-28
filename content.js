@@ -28,6 +28,7 @@
   let lastMenuSignature = "";
   let contentKey = "";
   let reloadTimer = 0;
+  let lastDiagnostic = "";
   const isMax = /(^|\.)max\.com$|(^|\.)hbomax\.com$/i.test(location.hostname);
   const platform = isMax ? "max" : "netflix";
   const platformName = isMax ? "Max" : "Netflix";
@@ -48,6 +49,7 @@
           <option value="">${t("autoSelect")}</option>
         </select>
         <div id="nbs-status">${t("waitingForPlatformSubtitles", platformName)}</div>
+        <button id="nbs-copy-diagnostic" type="button" hidden>${t("copyDiagnostics")}</button>
       </div>`;
 
     subtitle = document.createElement("div");
@@ -57,6 +59,11 @@
     document.documentElement.append(panel, subtitle);
     select = panel.querySelector("#nbs-language");
     status = panel.querySelector("#nbs-status");
+    panel.querySelector("#nbs-copy-diagnostic").addEventListener("click", async (event) => {
+      if (!lastDiagnostic) return;
+      await navigator.clipboard.writeText(lastDiagnostic).catch(() => {});
+      event.currentTarget.textContent = t("diagnosticsCopied");
+    });
 
     panel.querySelector("#nbs-toggle").addEventListener("click", () => {
       const menu = panel.querySelector("#nbs-menu");
@@ -442,6 +449,9 @@
       status.textContent = event.data.statusKey === "parsed"
         ? t("parsedSubtitleCues", String(event.data.count || 0))
         : t("subtitleTimeParseFailed", event.data.format || "unknown");
+      const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
+      diagnosticButton.hidden = event.data.statusKey === "parsed" || !lastDiagnostic;
+      diagnosticButton.textContent = t("copyDiagnostics");
       return;
     }
     if (event.data?.type !== "track") return;
@@ -465,6 +475,12 @@
         return;
       }
     }
+    lastDiagnostic = [
+      `platform=${platform}`,
+      `url=${message.url || ""}`,
+      `language=${message.language || ""}`,
+      body.slice(0, 3000)
+    ].join("\n");
     window.postMessage({
       source: "netflix-bilingual-subtitles-content",
       type: "raw-response",

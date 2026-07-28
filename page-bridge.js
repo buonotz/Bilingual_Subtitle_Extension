@@ -99,15 +99,41 @@
       if (tickRate && /^\d+(?:\.\d+)?$/.test(raw)) return Number(raw) / tickRate;
       return seconds(raw);
     };
-    const nodes = xml.getElementsByTagNameNS("*", "p");
+    const nodes = [
+      ...xml.getElementsByTagNameNS("*", "p"),
+      ...xml.getElementsByTagName("p")
+    ].filter((node, index, all) => all.indexOf(node) === index);
     for (const node of nodes) {
       const start = xmlSeconds(node.getAttribute("begin") || node.getAttribute("t"));
       let end = xmlSeconds(node.getAttribute("end"));
       const duration = xmlSeconds(node.getAttribute("dur") || node.getAttribute("d"));
       if (!Number.isFinite(end) && Number.isFinite(duration)) end = start + duration;
       const cueText = cleanText(node.innerHTML);
-      if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
+      if (Number.isFinite(start) && cueText) cues.push({ start, end, text: cueText });
     }
+    if (!cues.length) {
+      const cuePattern = /<(?:[\w-]+:)?p\b([^>]*)>([\s\S]*?)<\/(?:[\w-]+:)?p\s*>/gi;
+      let match;
+      while ((match = cuePattern.exec(text))) {
+        const attributes = match[1];
+        const attribute = (name) => {
+          const found = attributes.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*["']([^"']+)["']`, "i"));
+          return found?.[1] || "";
+        };
+        const start = xmlSeconds(attribute("begin") || attribute("t"));
+        let end = xmlSeconds(attribute("end"));
+        const duration = xmlSeconds(attribute("dur") || attribute("d"));
+        if (!Number.isFinite(end) && Number.isFinite(duration)) end = start + duration;
+        const cueText = cleanText(match[2]);
+        if (Number.isFinite(start) && cueText) cues.push({ start, end, text: cueText });
+      }
+    }
+    cues.sort((a, b) => a.start - b.start);
+    cues.forEach((cue, index) => {
+      if (!Number.isFinite(cue.end) || cue.end <= cue.start) {
+        cue.end = cues[index + 1]?.start || cue.start + 5;
+      }
+    });
     return cues;
   }
 
