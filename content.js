@@ -319,7 +319,8 @@
 
   async function discoverNetflixTracks() {
     if (menuDiscoveryRunning || subtitleMenuItems().length) {
-      importNetflixMenu();
+      const items = importNetflixMenu();
+      if (!menuDiscoveryRunning && items.length) maybeAutoLoadStoredSelection();
       return;
     }
     const button = netflixMenuButton();
@@ -331,12 +332,17 @@
     button.click();
     await delay(isMax ? 900 : 350);
     const items = importNetflixMenu();
-    button.click();
     menuDiscoveryRunning = false;
     if (!items.length) {
+      button.click();
       status.textContent = t("openPlatformSubtitleMenu", platformName);
-    } else {
+    } else if (selectedLanguage && select?.value) {
+      // Keep Max's freshly discovered subtitle menu open. Closing and reopening
+      // it immediately races its React state update and leaves the old language
+      // selected even though our select already shows the restored preference.
       maybeAutoLoadStoredSelection();
+    } else {
+      button.click();
     }
   }
 
@@ -353,7 +359,7 @@
     setTimeout(() => {
       if (!select?.isConnected || canonicalLanguage(select.value) !== wanted) return;
       select.dispatchEvent(new Event("change"));
-    }, isMax ? 250 : 100);
+    }, isMax ? 400 : 100);
   }
 
   async function loadViaNetflixMenu(language) {
