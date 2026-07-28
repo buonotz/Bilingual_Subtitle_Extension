@@ -139,7 +139,7 @@
     window.postMessage({
       source: "netflix-bilingual-subtitles",
       type: "track",
-      track: { id, language, label: language || "Netflix 官方字幕", cues }
+      track: { id, language, label: language || "Official subtitle", cues }
     }, "*");
     window.postMessage({
       source: "netflix-bilingual-subtitles",
@@ -189,7 +189,7 @@
   function retryTimedTextResource(entry) {
     const url = String(entry?.name || "");
     if (!url || retriedResources.has(url)) return;
-    if (!/nflxvideo\.net|netflix\.com/i.test(url)) return;
+    if (!/nflxvideo\.net|netflix\.com|max\.com|hbomax\.com/i.test(url)) return;
     if (!["fetch", "xmlhttprequest", "other"].includes(entry.initiatorType)) return;
     const size = entry.encodedBodySize || entry.transferSize || 0;
     if (!size || size > 1_500_000) return;

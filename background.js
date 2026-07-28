@@ -8,8 +8,12 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const response = params.response || {};
     const url = String(response.url || "");
     const mime = String(response.mimeType || "").toLowerCase();
-    const likelySubtitle = /nflxvideo\.net|netflix\.com/i.test(url)
-      && (/text|xml|json|vtt|ttml|octet-stream/.test(mime));
+    const netflixResource = /nflxvideo\.net|netflix\.com/i.test(url)
+      && /text|xml|json|vtt|ttml|octet-stream/.test(mime);
+    const maxResource = session.platform === "max"
+      && (/vtt|ttml|xml/.test(mime)
+        || /subtitle|caption|timed.?text|\.vtt(?:\?|$)|\.ttml(?:\?|$)/i.test(url));
+    const likelySubtitle = netflixResource || maxResource;
     const inTargetWindow = session.targetStartedAt
       && Date.now() - session.targetStartedAt < 1400;
     if (likelySubtitle && inTargetWindow) {
@@ -69,6 +73,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       const session = {
         language: String(message.language || ""),
+        platform: String(message.platform || ""),
         requests: new Map(),
         targetStartedAt: 0,
         timer: setTimeout(() => stopCapture(tabId), 10_000)

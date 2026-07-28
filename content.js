@@ -26,6 +26,9 @@
   let video;
   let menuDiscoveryRunning = false;
   let lastMenuSignature = "";
+  const isMax = /(^|\.)max\.com$|(^|\.)hbomax\.com$/i.test(location.hostname);
+  const platform = isMax ? "max" : "netflix";
+  const platformName = isMax ? "Max" : "Netflix";
 
   const normalize = (value) => String(value || "").trim().toLowerCase().replace("_", "-");
   const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
@@ -42,7 +45,7 @@
         <select id="nbs-language">
           <option value="">${t("autoSelect")}</option>
         </select>
-        <div id="nbs-status">${t("waitingForNetflixSubtitles")}</div>
+        <div id="nbs-status">${t("waitingForPlatformSubtitles", platformName)}</div>
       </div>`;
 
     subtitle = document.createElement("div");
@@ -66,7 +69,8 @@
       if (selectedLanguage) {
         const capture = await chrome.runtime.sendMessage({
           type: "nbs-start-capture",
-          language: selectedLanguage
+          language: selectedLanguage,
+          platform
         }).catch((error) => ({ ok: false, error: error.message }));
         if (!capture?.ok) {
           status.textContent = t("captureFailed", capture?.error || t("unknownError"));
@@ -99,7 +103,15 @@
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
   function netflixMenuButton() {
-    const selectors = [
+    const selectors = isMax ? [
+      "button[aria-label*='audio and subtitles' i]",
+      "button[aria-label*='audio & subtitles' i]",
+      "button[aria-label*='subtitles' i]",
+      "button[aria-label*='captions' i]",
+      "[data-testid*='audio-subtitle' i]",
+      "[data-testid*='subtitle-button' i]",
+      "[data-testid*='caption-button' i]"
+    ] : [
       "[data-uia='control-audio-subtitle']",
       "[data-uia='control-audio-subtitles']",
       "[data-uia='audio-subtitle-controller']",
@@ -112,14 +124,19 @@
   }
 
   function subtitleMenuItems() {
-    return [...document.querySelectorAll("[data-uia^='subtitle-item-']")]
-      .filter((item) => !/subtitle-item-(off|关闭|aus)$/i.test(item.dataset.uia || ""));
+    const selector = isMax
+      ? "[role='dialog'] [role='radio'], [role='menu'] [role='menuitemradio'], [data-testid*='subtitle-option' i]"
+      : "[data-uia^='subtitle-item-']";
+    return [...document.querySelectorAll(selector)].filter((item) => {
+      const value = `${item.dataset.uia || ""} ${item.textContent || ""}`.trim();
+      return !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕)$/i.test(value);
+    });
   }
 
   function itemLabel(item) {
     return item.innerText?.trim()
       || decodeURIComponent((item.dataset.uia || "").replace(/^subtitle-item-/, ""))
-      || t("officialNetflixSubtitle");
+      || t("officialPlatformSubtitle", platformName);
   }
 
   function importNetflixMenu() {
@@ -130,7 +147,7 @@
     items.forEach((item, index) => {
       const label = itemLabel(item);
       const language = normalize(label);
-      const id = `menu:${item.dataset.uia || index}`;
+      const id = `menu:${item.dataset.uia || item.dataset.testid || label || index}`;
       const previous = tracks.get(id);
       tracks.set(id, { id, language, label, cues: previous?.cues || [] });
     });
@@ -154,7 +171,7 @@
     const items = importNetflixMenu();
     button.click();
     menuDiscoveryRunning = false;
-    if (!items.length) status.textContent = t("openNetflixSubtitleMenu");
+    if (!items.length) status.textContent = t("openPlatformSubtitleMenu", platformName);
   }
 
   async function loadViaNetflixMenu(language) {
@@ -218,14 +235,18 @@
   }
 
   function getNetflixPrimaryLanguage() {
-    const nodes = document.querySelectorAll(
-      ".player-timedtext-text-container, [data-uia='player-subtitle-text']"
-    );
+    const nodes = document.querySelectorAll(nativeSubtitleSelector());
     for (const node of nodes) {
       const lang = node.closest("[lang]")?.lang || node.lang;
       if (lang) return normalize(lang);
     }
     return "";
+  }
+
+  function nativeSubtitleSelector() {
+    return isMax
+      ? "[data-testid*='subtitle' i]:not(#nbs-subtitle), [data-testid*='caption' i], [class*='subtitle' i]:not(#nbs-subtitle), [class*='caption' i]"
+      : ".player-timedtext-text-container, [data-uia='player-subtitle-text']";
   }
 
   function refreshOptions() {
@@ -302,9 +323,9 @@
       lastText = "";
       return;
     }
-    const netflixText = [...document.querySelectorAll(
-      ".player-timedtext-text-container, [data-uia='player-subtitle-text']"
-    )].map((node) => node.textContent || "").join(" ").replace(/\s+/g, " ").trim();
+    const netflixText = [...document.querySelectorAll(nativeSubtitleSelector())]
+      .filter((node) => node !== panel && !panel?.contains(node) && node !== subtitle)
+      .map((node) => node.textContent || "").join(" ").replace(/\s+/g, " ").trim();
     const normalizedCue = text.replace(/\s+/g, " ").trim();
     if (netflixText && (netflixText === normalizedCue || netflixText.includes(normalizedCue))) {
       subtitle.hidden = true;
@@ -321,8 +342,9 @@
 
   function positionAboveNetflixSubtitle() {
     const nativeNodes = [...document.querySelectorAll(
-      ".player-timedtext-text-container, [data-uia='player-subtitle-text']"
+      nativeSubtitleSelector()
     )].filter((node) => {
+      if (node === subtitle || node === panel || panel?.contains(node)) return false;
       const rect = node.getBoundingClientRect();
       const style = getComputedStyle(node);
       return rect.width > 0 && rect.height > 0
