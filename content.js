@@ -19,6 +19,8 @@
   let contentKey = "";
   let reloadTimer = 0;
   let lastDiagnostic = "";
+  let trackStatusText = "";
+  let activeTimeline = null;
   const isMax = /(^|\.)max\.com$|(^|\.)hbomax\.com$/i.test(location.hostname);
   const platform = isMax ? "max" : "netflix";
   const platformName = isMax ? "Max" : "Netflix";
@@ -392,9 +394,9 @@
     const storedKey = canonicalLanguage(selectedLanguage);
     select.value = languages.has(current) ? current : (languages.has(storedKey) ? storedKey : "");
     const loadedCount = [...tracks.values()].filter((track) => track.cues?.length).length;
-    status.textContent = loadedCount
+    status.textContent = trackStatusText || (loadedCount
       ? t("tracksLoaded", String(loadedCount))
-      : (languages.size ? t("selectLanguageHint") : t("noTracksDiscovered", platformName));
+      : (languages.size ? t("selectLanguageHint") : t("noTracksDiscovered", platformName)));
   }
 
   function chooseTrack() {
@@ -456,6 +458,15 @@
   }
 
   function render() {
+    if (activeTimeline && status) {
+      trackStatusText = t("parsedSubtitleTimeline", [
+        String(activeTimeline.count),
+        activeTimeline.start.toFixed(1),
+        activeTimeline.end.toFixed(1),
+        Number(video?.currentTime || 0).toFixed(1)
+      ]);
+      status.textContent = trackStatusText;
+    }
     if (!subtitle || !video || !activeTrackId) {
       if (subtitle) subtitle.hidden = true;
       return;
@@ -537,6 +548,8 @@
     tracks.clear();
     activeTrackId = "";
     lastText = "";
+    trackStatusText = "";
+    activeTimeline = null;
     lastMenuSignature = "";
     subtitle.hidden = true;
     refreshOptions();
@@ -611,12 +624,11 @@
     chooseTrack();
     const firstCue = normalizedCues[0];
     const lastCue = normalizedCues[normalizedCues.length - 1];
-    status.textContent = t("parsedSubtitleTimeline", [
-      String(normalizedCues.length),
-      Number(firstCue.start).toFixed(1),
-      Number(lastCue.end).toFixed(1),
-      Number(video?.currentTime || 0).toFixed(1)
-    ]);
+    activeTimeline = {
+      count: normalizedCues.length,
+      start: Number(firstCue.start),
+      end: Number(lastCue.end)
+    };
     render();
   });
 
