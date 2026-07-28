@@ -13,11 +13,11 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const maxVideoOrAudio = /\/[va]\/[^?]*\.mp4(?:\?|$)/i.test(url)
       || /(?:\?|&)CMCD=[^&]*(?:ot%3D|ot=)[av](?:%2C|,|&)/i.test(url);
     const maxResource = session.platform === "max" && !maxVideoOrAudio
-      && (/vtt|ttml|xml/.test(mime)
+      && (/vtt|ttml|xml|application\/mp4/.test(mime)
         || /\/t\/[^?]*\.mp4(?:\?|$)|subtitle|caption|timed.?text|\.vtt(?:\?|$)|\.ttml(?:\?|$)/i.test(url));
     const likelySubtitle = netflixResource || maxResource;
     const inTargetWindow = session.targetStartedAt
-      && Date.now() - session.targetStartedAt < 1400;
+      && Date.now() - session.targetStartedAt < 3000;
     if (likelySubtitle && inTargetWindow) {
       session.requests.set(params.requestId, { url, mime });
     }

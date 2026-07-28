@@ -349,7 +349,7 @@
         type: "restore-language",
         language: previousLabel
       }, "*");
-      status.textContent = t("restoreFailed");
+      status.textContent = t("restoreFailed", platformName);
     }
     await delay(250);
     button = netflixMenuButton();

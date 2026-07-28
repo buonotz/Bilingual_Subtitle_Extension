@@ -18,7 +18,7 @@
   "switchLanguageManually": { "message": "请在 Netflix 原生菜单切到该语言一次，然后再切回第一语言" },
   "primarySubtitleNotDetected": { "message": "无法识别当前第一字幕；请先在 Netflix 菜单中选定第一字幕" },
   "secondaryLoadedPrimaryRestored": { "message": "第二字幕已加载，第一字幕已恢复" },
-  "restoreFailed": { "message": "未能自动恢复，请在 Netflix 菜单切回原来的第一字幕" },
+  "restoreFailed": { "message": "未能自动恢复，请在 $1 菜单切回原来的第一字幕" },
   "tracksLoaded": { "message": "已加载 $1 条官方字幕轨" },
   "selectLanguageHint": { "message": "选择语言后，扩展会尝试加载该官方字幕" },
   "waitingForSecondarySubtitle": { "message": "捕获到的是第一字幕，正在等待第二字幕" },
