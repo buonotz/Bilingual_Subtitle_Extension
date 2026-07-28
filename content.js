@@ -18,6 +18,7 @@
   let lastMenuSignature = "";
   let contentKey = "";
   let reloadTimer = 0;
+  let autoLoadKey = "";
   let lastDiagnostic = "";
   let trackStatusText = "";
   let activeTimeline = null;
@@ -332,7 +333,27 @@
     const items = importNetflixMenu();
     button.click();
     menuDiscoveryRunning = false;
-    if (!items.length) status.textContent = t("openPlatformSubtitleMenu", platformName);
+    if (!items.length) {
+      status.textContent = t("openPlatformSubtitleMenu", platformName);
+    } else {
+      maybeAutoLoadStoredSelection();
+    }
+  }
+
+  function maybeAutoLoadStoredSelection() {
+    const wanted = canonicalLanguage(selectedLanguage);
+    if (!wanted || !select?.value) return;
+    const alreadyLoaded = [...tracks.values()].some((track) => {
+      const language = canonicalLanguage(track.language || track.label);
+      return track.cues?.length && (language === wanted || language.startsWith(`${wanted}-`));
+    });
+    const key = `${currentContentKey()}|${wanted}`;
+    if (alreadyLoaded || autoLoadKey === key) return;
+    autoLoadKey = key;
+    setTimeout(() => {
+      if (!select?.isConnected || canonicalLanguage(select.value) !== wanted) return;
+      select.dispatchEvent(new Event("change"));
+    }, isMax ? 250 : 100);
   }
 
   async function loadViaNetflixMenu(language) {
@@ -601,6 +622,7 @@
     trackStatusText = "";
     activeTimeline = null;
     lastMenuSignature = "";
+    autoLoadKey = "";
     subtitle.hidden = true;
     refreshOptions();
     if (!selectedLanguage) return;
