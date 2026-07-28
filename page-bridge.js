@@ -218,7 +218,7 @@
     }
     if (!cues.length) return;
     cues.sort((a, b) => a.start - b.start);
-    const language = languageFromUrl(url) || requestedLanguage;
+    const language = requestedLanguage || languageFromUrl(url);
     const id = `${language || "unknown"}:${url.replace(/[?#].*$/, "").slice(-100)}`;
     const signature = `${id}:${cues.length}:${cues[0].start}`;
     if (seen.has(signature)) return;

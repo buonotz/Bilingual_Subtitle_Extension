@@ -130,12 +130,51 @@
   }
 
   function subtitleMenuItems() {
-    const selector = isMax
-      ? "[role='dialog'] [role='radio'], [role='menu'] [role='menuitemradio'], [data-testid*='subtitle-option' i]"
-      : "[data-uia^='subtitle-item-']";
-    return [...document.querySelectorAll(selector)].filter((item) => {
+    let candidates;
+    if (isMax) {
+      const selector = [
+        "[role='dialog'] [role='radio']",
+        "[role='dialog'] [role='option']",
+        "[role='menu'] [role='menuitemradio']",
+        "[data-testid*='subtitle-option' i]",
+        "[data-testid*='caption-option' i]"
+      ].join(",");
+      candidates = [...document.querySelectorAll(selector)];
+
+      if (!candidates.length) {
+        const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,[role='heading'],span,div")]
+          .filter((node) => {
+            const text = normalize(node.textContent);
+            const rect = node.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0
+              && /^(subtitles?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕)$/.test(text);
+          });
+        for (const heading of headings) {
+          let container = heading.parentElement;
+          for (let depth = 0; container && depth < 6; depth += 1, container = container.parentElement) {
+            const options = [...container.querySelectorAll(
+              "button,[role='radio'],[role='option'],[role='menuitem'],li"
+            )].filter((item) => {
+              const text = item.innerText?.trim() || "";
+              const rect = item.getBoundingClientRect();
+              return item !== heading && text && text.length <= 100
+                && rect.width > 0 && rect.height > 0;
+            });
+            if (options.length) {
+              candidates = options;
+              break;
+            }
+          }
+          if (candidates.length) break;
+        }
+      }
+    } else {
+      candidates = [...document.querySelectorAll("[data-uia^='subtitle-item-']")];
+    }
+
+    return candidates.filter((item) => {
       const value = `${item.dataset.uia || ""} ${item.textContent || ""}`.trim();
-      return !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕)$/i.test(value);
+      return !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕|subtitles?|captions?|untertitel)$/i.test(value);
     });
   }
 
@@ -460,6 +499,8 @@
     const detail = event.data.track;
     if (!detail?.id || !Array.isArray(detail.cues) || !detail.cues.length) return;
     tracks.set(detail.id, detail);
+    const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
+    if (diagnosticButton) diagnosticButton.hidden = true;
     refreshOptions();
     chooseTrack();
     render();
