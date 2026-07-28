@@ -126,7 +126,7 @@
       window.postMessage({
         source: "netflix-bilingual-subtitles",
         type: "parse-status",
-        status: "捕获到字幕候选响应，但未能解析时间码"
+        statusKey: "parseFailed"
       }, "*");
     }
     if (!cues.length) return;
@@ -144,7 +144,8 @@
     window.postMessage({
       source: "netflix-bilingual-subtitles",
       type: "parse-status",
-      status: `已解析 ${cues.length} 条第二字幕`
+      statusKey: "parsed",
+      count: cues.length
     }, "*");
   }
 

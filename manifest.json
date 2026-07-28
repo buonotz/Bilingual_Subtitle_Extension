@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Netflix Bilingual Subtitles",
-  "version": "0.8.1",
-  "description": "在 Netflix 网页版原字幕上方显示另一条官方字幕。",
+  "name": "__MSG_extensionName__",
+  "version": "0.9.0",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "en",
   "permissions": ["storage", "debugger"],
   "host_permissions": ["https://www.netflix.com/*"],
   "content_scripts": [
@@ -20,7 +21,7 @@
     }
   ],
   "action": {
-    "default_title": "Netflix 双语字幕"
+    "default_title": "__MSG_extensionName__"
   },
   "background": {
     "service_worker": "background.js"

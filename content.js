@@ -28,6 +28,7 @@
   let lastMenuSignature = "";
 
   const normalize = (value) => String(value || "").trim().toLowerCase().replace("_", "-");
+  const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
 
   function createUi() {
     if (panel?.isConnected) return;
@@ -35,13 +36,13 @@
     panel = document.createElement("div");
     panel.id = "nbs-panel";
     panel.innerHTML = `
-      <button id="nbs-toggle" type="button" aria-label="设置第二字幕">双语字幕</button>
+      <button id="nbs-toggle" type="button" aria-label="${t("configureSecondarySubtitle")}">${t("bilingualSubtitles")}</button>
       <div id="nbs-menu" hidden>
-        <label for="nbs-language">第二字幕</label>
+        <label for="nbs-language">${t("secondarySubtitle")}</label>
         <select id="nbs-language">
-          <option value="">自动选择</option>
+          <option value="">${t("autoSelect")}</option>
         </select>
-        <div id="nbs-status">正在等待 Netflix 字幕…</div>
+        <div id="nbs-status">${t("waitingForNetflixSubtitles")}</div>
       </div>`;
 
     subtitle = document.createElement("div");
@@ -68,7 +69,7 @@
           language: selectedLanguage
         }).catch((error) => ({ ok: false, error: error.message }));
         if (!capture?.ok) {
-          status.textContent = `无法捕获字幕网络响应：${capture?.error || "未知错误"}`;
+          status.textContent = t("captureFailed", capture?.error || t("unknownError"));
           return;
         }
         window.postMessage({
@@ -76,7 +77,7 @@
           type: "load-language",
           language: selectedLanguage
         }, "*");
-        status.textContent = "正在加载所选官方字幕…";
+        status.textContent = t("loadingSelectedSubtitle");
         await loadViaNetflixMenu(selectedLanguage);
       }
       chooseTrack();
@@ -118,7 +119,7 @@
   function itemLabel(item) {
     return item.innerText?.trim()
       || decodeURIComponent((item.dataset.uia || "").replace(/^subtitle-item-/, ""))
-      || "Netflix 官方字幕";
+      || t("officialNetflixSubtitle");
   }
 
   function importNetflixMenu() {
@@ -144,7 +145,7 @@
     }
     const button = netflixMenuButton();
     if (!button) {
-      status.textContent = "未识别控制栏；仍可先从列表选择语言";
+      status.textContent = t("controlsNotFound");
       return;
     }
     menuDiscoveryRunning = true;
@@ -153,7 +154,7 @@
     const items = importNetflixMenu();
     button.click();
     menuDiscoveryRunning = false;
-    if (!items.length) status.textContent = "请先打开一次 Netflix 的“音频与字幕”菜单";
+    if (!items.length) status.textContent = t("openNetflixSubtitleMenu");
   }
 
   async function loadViaNetflixMenu(language) {
@@ -169,7 +170,7 @@
       return label === wanted || label.startsWith(`${wanted} `) || wanted.startsWith(`${label} `);
     });
     if (!target) {
-      status.textContent = "请在 Netflix 原生菜单切到该语言一次，然后再切回第一语言";
+      status.textContent = t("switchLanguageManually");
       if (button) button.click();
       return;
     }
@@ -178,7 +179,7 @@
       || item.querySelector("[aria-checked='true'], [data-uia*='selected']")
     );
     if (!previous) {
-      status.textContent = "无法识别当前第一字幕；请先在 Netflix 菜单中选定第一字幕";
+      status.textContent = t("primarySubtitleNotDetected");
       if (button && subtitleMenuItems().length) button.click();
       return;
     }
@@ -202,14 +203,14 @@
     );
     if (restored && restored !== target) {
       restored.click();
-      status.textContent = "第二字幕已加载，第一字幕已恢复";
+      status.textContent = t("secondaryLoadedPrimaryRestored");
     } else {
       window.postMessage({
         source: "netflix-bilingual-subtitles-content",
         type: "restore-language",
         language: previousLabel
       }, "*");
-      status.textContent = "未能自动恢复，请在 Netflix 菜单切回原来的第一字幕";
+      status.textContent = t("restoreFailed");
     }
     await delay(250);
     button = netflixMenuButton();
@@ -236,7 +237,7 @@
       if (key && !languages.has(key)) languages.set(key, track.label || track.language || key);
     }
 
-    select.replaceChildren(new Option("自动选择", ""));
+    select.replaceChildren(new Option(t("autoSelect"), ""));
     FALLBACK_LANGUAGES.forEach(([value, label]) => {
       const key = normalize(value);
       if (!languages.has(key)) languages.set(key, label);
@@ -247,8 +248,8 @@
     select.value = languages.has(current) ? current : selectedLanguage;
     const loadedCount = [...tracks.values()].filter((track) => track.cues?.length).length;
     status.textContent = loadedCount
-      ? `已加载 ${loadedCount} 条官方字幕轨`
-      : "选择语言后，扩展会尝试加载该官方字幕";
+      ? t("tracksLoaded", String(loadedCount))
+      : t("selectLanguageHint");
   }
 
   function chooseTrack() {
@@ -307,7 +308,7 @@
     const normalizedCue = text.replace(/\s+/g, " ").trim();
     if (netflixText && (netflixText === normalizedCue || netflixText.includes(normalizedCue))) {
       subtitle.hidden = true;
-      status.textContent = "捕获到的是第一字幕，正在等待第二字幕";
+      status.textContent = t("waitingForSecondarySubtitle");
       return;
     }
     positionAboveNetflixSubtitle();
@@ -356,7 +357,7 @@
       tracks.set(id, {
         id,
         language: native.language,
-        label: native.label || native.language || `字幕 ${index + 1}`,
+        label: native.label || native.language || t("subtitleNumber", String(index + 1)),
         cues: [...native.cues].map((cue) => ({
           start: cue.startTime,
           end: cue.endTime,
@@ -378,7 +379,9 @@
       return;
     }
     if (event.data?.type === "parse-status") {
-      status.textContent = event.data.status;
+      status.textContent = event.data.statusKey === "parsed"
+        ? t("parsedSubtitleCues", String(event.data.count || 0))
+        : t("subtitleTimeParseFailed");
       return;
     }
     if (event.data?.type !== "track") return;
