@@ -24,5 +24,5 @@
   "waitingForSecondarySubtitle": { "message": "捕获到的是第一字幕，正在等待第二字幕" },
   "subtitleNumber": { "message": "字幕 $1" },
   "parsedSubtitleCues": { "message": "已解析 $1 条第二字幕" },
-  "subtitleTimeParseFailed": { "message": "捕获到字幕候选响应，但未能解析时间码" }
+  "subtitleTimeParseFailed": { "message": "捕获到 $1 字幕响应，但未能解析时间码" }
 }

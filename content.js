@@ -403,7 +403,7 @@
     if (event.data?.type === "parse-status") {
       status.textContent = event.data.statusKey === "parsed"
         ? t("parsedSubtitleCues", String(event.data.count || 0))
-        : t("subtitleTimeParseFailed");
+        : t("subtitleTimeParseFailed", event.data.format || "unknown");
       return;
     }
     if (event.data?.type !== "track") return;

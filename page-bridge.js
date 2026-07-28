@@ -88,35 +88,70 @@
     return cues;
   }
 
-  function walkJson(value, output) {
+  function nestedText(value, depth = 0) {
+    if (depth > 5 || value == null) return "";
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) {
+      return value.map((item) => nestedText(item, depth + 1)).filter(Boolean).join("\n");
+    }
+    if (typeof value !== "object") return "";
+    const direct = value.text ?? value.utf8 ?? value.content ?? value.payload
+      ?? value.value ?? value.caption;
+    if (typeof direct === "string") return direct;
+    return ["lines", "spans", "segments", "segs", "fragments", "children"]
+      .map((key) => nestedText(value[key], depth + 1))
+      .filter(Boolean)
+      .join("\n");
+  }
+
+  function walkJson(value, output, embedded) {
     if (!value || typeof value !== "object") return;
-    const startValue = value.startTime ?? value.start ?? value.begin ?? value.t;
-    const endValue = value.endTime ?? value.end;
-    const durationValue = value.duration ?? value.d;
-    const textValue = value.text ?? value.payload ?? value.content ?? value.line;
-    const start = seconds(startValue);
-    let end = seconds(endValue);
-    const duration = seconds(durationValue);
+    const startIsMs = value.startTimeMs != null || value.tStartMs != null;
+    const endIsMs = value.endTimeMs != null;
+    const durationIsMs = value.durationMs != null || value.dDurationMs != null;
+    const startValue = value.startTimeMs ?? value.tStartMs ?? value.startTime ?? value.start
+      ?? value.begin ?? value.beginTime ?? value.tStartMs ?? value.t;
+    const endValue = value.endTimeMs ?? value.endTime ?? value.end;
+    const durationValue = value.durationMs ?? value.dDurationMs ?? value.duration ?? value.d;
+    const directText = value.text ?? value.payload ?? value.content ?? value.line;
+    const textValue = typeof directText === "string" ? directText : nestedText(value);
+    const start = startIsMs ? Number(startValue) / 1000 : seconds(startValue);
+    let end = endIsMs ? Number(endValue) / 1000 : seconds(endValue);
+    const duration = durationIsMs ? Number(durationValue) / 1000 : seconds(durationValue);
     if (!Number.isFinite(end) && Number.isFinite(start) && Number.isFinite(duration)) end = start + duration;
     if (Number.isFinite(start) && Number.isFinite(end) && typeof textValue === "string") {
       const text = cleanText(textValue);
       if (text) output.push({ start, end, text });
     }
     Object.values(value).forEach((child) => {
-      if (child && typeof child === "object") walkJson(child, output);
+      if (typeof child === "string"
+        && (child.includes("-->") || /<(?:tt|p)[\s>]/i.test(child))) {
+        embedded.push(child);
+      } else if (child && typeof child === "object") {
+        walkJson(child, output, embedded);
+      }
     });
   }
 
   function publish(url, body) {
     if (!body || body.length > 15_000_000) return;
     let cues = [];
+    const embedded = [];
     const trimmed = body.trim();
+    let format = "unknown";
     try {
       if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-        walkJson(JSON.parse(trimmed), cues);
+        format = "JSON";
+        walkJson(JSON.parse(trimmed), cues, embedded);
+        embedded.forEach((payload) => {
+          if (payload.includes("-->")) cues.push(...parseVtt(payload));
+          else cues.push(...parseXml(payload));
+        });
       } else if (trimmed.includes("-->")) {
+        format = "WebVTT";
         cues = parseVtt(trimmed);
       } else if (/<(?:tt|p)[\s>]/i.test(trimmed)) {
+        format = "TTML";
         cues = parseXml(trimmed);
       }
     } catch (_) {
@@ -126,7 +161,8 @@
       window.postMessage({
         source: "netflix-bilingual-subtitles",
         type: "parse-status",
-        statusKey: "parseFailed"
+        statusKey: "parseFailed",
+        format
       }, "*");
     }
     if (!cues.length) return;
