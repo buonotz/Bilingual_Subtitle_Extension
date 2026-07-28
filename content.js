@@ -209,7 +209,11 @@
 
     return candidates.filter((item) => {
       const value = `${item.dataset.uia || ""} ${item.textContent || ""}`.trim();
-      return !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕|subtitles?|captions?|untertitel)$/i.test(value);
+      const rect = item.getBoundingClientRect();
+      const style = getComputedStyle(item);
+      return rect.width > 0 && rect.height > 0
+        && style.display !== "none" && style.visibility !== "hidden"
+        && !/(?:subtitle-item-)?(?:off|关闭|aus|none|无字幕|subtitles?|captions?|untertitel)$/i.test(value);
     });
   }
 
@@ -229,7 +233,7 @@
       const language = canonicalLanguage(label);
       const id = `menu:${item.dataset.uia || item.dataset.testid || label || index}`;
       const previous = tracks.get(id);
-      tracks.set(id, { id, language, label, cues: previous?.cues || [] });
+      tracks.set(id, { id, language, label, source: "menu", cues: previous?.cues || [] });
     });
     if (items.length) refreshOptions();
     return items;
@@ -333,8 +337,13 @@
     if (!select) return;
     const current = select.value;
     const languages = new Map();
-    for (const track of tracks.values()) {
-      const key = canonicalLanguage(track.language || track.label);
+    const allTracks = [...tracks.values()];
+    const hasMenuTracks = allTracks.some((track) => track.source === "menu");
+    const optionTracks = hasMenuTracks
+      ? allTracks.filter((track) => track.source === "menu" || track.cues?.length)
+      : allTracks;
+    for (const track of optionTracks) {
+      const key = canonicalLanguage(track.label || track.language);
       if (key && !languages.has(key)) languages.set(key, track.label || track.language || key);
     }
 
@@ -508,7 +517,7 @@
     if (event.data?.type === "catalog") {
       event.data.tracks.forEach((track) => {
         const previous = tracks.get(track.id);
-        tracks.set(track.id, { ...track, cues: previous?.cues || [] });
+        tracks.set(track.id, { ...track, source: "catalog", cues: previous?.cues || [] });
       });
       refreshOptions();
       return;
@@ -533,7 +542,7 @@
     if (event.data?.type !== "track") return;
     const detail = event.data.track;
     if (!detail?.id || !Array.isArray(detail.cues) || !detail.cues.length) return;
-    tracks.set(detail.id, detail);
+    tracks.set(detail.id, { ...detail, source: "captured" });
     const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
     if (diagnosticButton) diagnosticButton.hidden = true;
     refreshOptions();

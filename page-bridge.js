@@ -320,7 +320,8 @@
     const catalog = [...list].map((track, index) => ({
       id: `catalog:${track?.trackId || track?.id || index}`,
       language: trackLanguage(track),
-      label: trackLabel(track)
+      label: trackLabel(track),
+      source: "catalog"
     })).filter((track) => track.language);
     if (catalog.length) {
       window.postMessage({
