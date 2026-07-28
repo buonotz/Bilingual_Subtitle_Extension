@@ -434,6 +434,27 @@
     return null;
   }
 
+  function normalizeCueTimeScale(cues) {
+    if (!isMax || !cues.length || !video?.duration || !Number.isFinite(video.duration)) return cues;
+    const lastEnd = Math.max(...cues.map((cue) => cue.end || cue.start || 0));
+    if (lastEnd <= video.duration * 5) return cues;
+
+    const factors = [1000, 10000, 90000, 10000000];
+    const viable = factors
+      .map((factor) => ({ factor, scaledEnd: lastEnd / factor }))
+      .filter(({ scaledEnd }) => scaledEnd >= video.duration * 0.2 && scaledEnd <= video.duration * 2);
+    if (!viable.length) return cues;
+    const best = viable.sort((a, b) =>
+      Math.abs(Math.log(a.scaledEnd / video.duration))
+      - Math.abs(Math.log(b.scaledEnd / video.duration))
+    )[0];
+    return cues.map((cue) => ({
+      ...cue,
+      start: cue.start / best.factor,
+      end: cue.end / best.factor
+    }));
+  }
+
   function render() {
     if (!subtitle || !video || !activeTrackId) {
       if (subtitle) subtitle.hidden = true;
@@ -569,22 +590,33 @@
           event.data.sample
         ].join("\n");
       }
-      status.textContent = event.data.statusKey === "parsed"
-        ? t("parsedSubtitleCues", String(event.data.count || 0))
-        : t("subtitleTimeParseFailed", event.data.format || "unknown");
+      if (event.data.statusKey !== "parsed" || !activeTrackId) {
+        status.textContent = event.data.statusKey === "parsed"
+          ? t("parsedSubtitleCues", String(event.data.count || 0))
+          : t("subtitleTimeParseFailed", event.data.format || "unknown");
+      }
       const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
-      diagnosticButton.hidden = event.data.statusKey === "parsed" || !lastDiagnostic;
+      diagnosticButton.hidden = !lastDiagnostic;
       diagnosticButton.textContent = t("copyDiagnostics");
       return;
     }
     if (event.data?.type !== "track") return;
     const detail = event.data.track;
     if (!detail?.id || !Array.isArray(detail.cues) || !detail.cues.length) return;
-    tracks.set(detail.id, { ...detail, source: "captured" });
+    const normalizedCues = normalizeCueTimeScale(detail.cues);
+    tracks.set(detail.id, { ...detail, cues: normalizedCues, source: "captured" });
     const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
-    if (diagnosticButton) diagnosticButton.hidden = true;
+    if (diagnosticButton) diagnosticButton.hidden = !lastDiagnostic;
     refreshOptions();
     chooseTrack();
+    const firstCue = normalizedCues[0];
+    const lastCue = normalizedCues[normalizedCues.length - 1];
+    status.textContent = t("parsedSubtitleTimeline", [
+      String(normalizedCues.length),
+      Number(firstCue.start).toFixed(1),
+      Number(lastCue.end).toFixed(1),
+      Number(video?.currentTime || 0).toFixed(1)
+    ]);
     render();
   });
 

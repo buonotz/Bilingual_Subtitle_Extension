@@ -28,5 +28,6 @@
   "newVideoDetected": { "message": "检测到新视频，正在重新加载第二字幕…" },
   "copyDiagnostics": { "message": "复制诊断信息" },
   "diagnosticsCopied": { "message": "诊断信息已复制" },
-  "noTracksDiscovered": { "message": "请打开 $1 的字幕菜单，以读取当前视频可用的语言。" }
+  "noTracksDiscovered": { "message": "请打开 $1 的字幕菜单，以读取当前视频可用的语言。" },
+  "parsedSubtitleTimeline": { "message": "$1 条 · 字幕 $2–$3 秒 · 播放器 $4 秒" }
 }

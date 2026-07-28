@@ -28,5 +28,6 @@
   "newVideoDetected": { "message": "New video detected; reloading the second subtitle…" },
   "copyDiagnostics": { "message": "Copy diagnostics" },
   "diagnosticsCopied": { "message": "Diagnostics copied" },
-  "noTracksDiscovered": { "message": "Open $1's subtitle menu to discover this video's available languages." }
+  "noTracksDiscovered": { "message": "Open $1's subtitle menu to discover this video's available languages." },
+  "parsedSubtitleTimeline": { "message": "$1 cues · subtitle $2–$3s · player $4s" }
 }
