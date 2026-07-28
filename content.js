@@ -296,7 +296,7 @@
         }
       }
 
-      if (!candidates.length) {
+      {
         const visibleHeadings = deepQueryAll("h1,h2,h3,h4,h5,[role='heading'],span,div")
           .filter((node) => {
             const rect = node.getBoundingClientRect();
@@ -312,14 +312,13 @@
         if (subtitleHeading) {
           const subtitleRect = subtitleHeading.getBoundingClientRect();
           const audioRect = audioHeading?.getBoundingClientRect();
-          candidates = deepQueryAll("button,[role='radio'],[role='option'],[role='menuitem'],li,div,span")
+          const positionedCandidates = deepQueryAll(
+            "button,[role='radio'],[role='option'],[role='menuitem'],li,div,span"
+          )
             .filter((item) => {
               const text = item.innerText?.trim() || item.textContent?.trim() || "";
               const rect = item.getBoundingClientRect();
-              const sameTextChild = [...item.children].some((child) =>
-                normalize(child.textContent) === normalize(text)
-              );
-              return text && text.length <= 100 && !sameTextChild
+              return text && text.length <= 100
                 && rect.width > 0 && rect.height > 0
                 && rect.top >= subtitleRect.bottom
                 && rect.left >= subtitleRect.left - 80
@@ -329,6 +328,7 @@
             .map((item) =>
               item.closest("button,[role='radio'],[role='option'],[role='menuitem'],li") || item
             );
+          candidates = [...new Set([...candidates, ...positionedCandidates])];
         }
       }
 
