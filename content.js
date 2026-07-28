@@ -66,7 +66,9 @@
       .replace(/\b(cc|sdh|captions?|subtitles?|audio description)\b/g, "")
       .replace(/\s+/g, " ")
       .trim();
-    return LANGUAGE_CODES.has(cleaned) || LANGUAGE_NAMES.has(cleaned);
+    const baseName = cleaned.split(" ")[0];
+    return LANGUAGE_CODES.has(cleaned) || LANGUAGE_NAMES.has(cleaned)
+      || LANGUAGE_NAMES.has(baseName);
   }
   const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
 
@@ -173,15 +175,25 @@
     actionable.click();
   }
 
+  function activatePlatformMenuButton(button) {
+    if (isMax) activateMenuItem(button);
+    else button.click();
+  }
+
   function netflixMenuButton() {
     const selectors = isMax ? [
       "button[aria-label*='audio and subtitles' i]",
       "button[aria-label*='audio & subtitles' i]",
       "button[aria-label*='subtitles' i]",
       "button[aria-label*='captions' i]",
+      "button[aria-label*='language' i]",
+      "button[title*='subtitle' i]",
+      "button[title*='caption' i]",
+      "button[title*='language' i]",
       "[data-testid*='audio-subtitle' i]",
       "[data-testid*='subtitle-button' i]",
-      "[data-testid*='caption-button' i]"
+      "[data-testid*='caption-button' i]",
+      "[data-testid*='language' i]"
     ] : [
       "[data-uia='control-audio-subtitle']",
       "[data-uia='control-audio-subtitles']",
@@ -285,6 +297,42 @@
       }
 
       if (!candidates.length) {
+        const visibleHeadings = deepQueryAll("h1,h2,h3,h4,h5,[role='heading'],span,div")
+          .filter((node) => {
+            const rect = node.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          });
+        const subtitleHeading = visibleHeadings.find((node) =>
+          /^(subtitles?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕)$/i
+            .test(node.textContent?.trim() || "")
+        );
+        const audioHeading = visibleHeadings.find((node) =>
+          /^(audio|ton|audio language|audiosprache)$/i.test(node.textContent?.trim() || "")
+        );
+        if (subtitleHeading) {
+          const subtitleRect = subtitleHeading.getBoundingClientRect();
+          const audioRect = audioHeading?.getBoundingClientRect();
+          candidates = deepQueryAll("button,[role='radio'],[role='option'],[role='menuitem'],li,div,span")
+            .filter((item) => {
+              const text = item.innerText?.trim() || item.textContent?.trim() || "";
+              const rect = item.getBoundingClientRect();
+              const sameTextChild = [...item.children].some((child) =>
+                normalize(child.textContent) === normalize(text)
+              );
+              return text && text.length <= 100 && !sameTextChild
+                && rect.width > 0 && rect.height > 0
+                && rect.top >= subtitleRect.bottom
+                && rect.left >= subtitleRect.left - 80
+                && (!audioRect || rect.right < audioRect.left + 40)
+                && isPlausibleLanguageOption(item);
+            })
+            .map((item) =>
+              item.closest("button,[role='radio'],[role='option'],[role='menuitem'],li") || item
+            );
+        }
+      }
+
+      if (!candidates.length) {
         const menuRoots = deepQueryAll(
           "[role='dialog'],[role='menu'],[aria-modal='true'],[data-testid*='subtitle' i],[data-testid*='caption' i]"
         ).filter((node) => {
@@ -360,10 +408,10 @@
       return;
     }
     menuDiscoveryRunning = true;
-    button.click();
+    activatePlatformMenuButton(button);
     await delay(isMax ? 900 : 350);
     const items = importNetflixMenu();
-    button.click();
+    activatePlatformMenuButton(button);
     menuDiscoveryRunning = false;
     if (!items.length) {
       status.textContent = t("openPlatformSubtitleMenu", platformName);
@@ -377,7 +425,7 @@
       button = netflixMenuButton();
     }
     if (!subtitleMenuItems().length && button) {
-      button.click();
+      activatePlatformMenuButton(button);
       await delay(isMax ? 900 : 300);
     }
     const items = importNetflixMenu();
@@ -388,7 +436,7 @@
     });
     if (!target) {
       status.textContent = t("switchLanguageManually");
-      if (button) button.click();
+      if (button) activatePlatformMenuButton(button);
       return;
     }
     const previous = items.find((item) =>
@@ -398,7 +446,7 @@
     );
     if (!previous) {
       status.textContent = t("primarySubtitleNotDetected");
-      if (button && subtitleMenuItems().length) button.click();
+      if (button && subtitleMenuItems().length) activatePlatformMenuButton(button);
       return;
     }
     const previousUia = previous.dataset.uia || "";
@@ -417,7 +465,7 @@
     // element reference is no longer usable. Reopen and find the original item.
     button = netflixMenuButton();
     if (button && !subtitleMenuItems().length) {
-      button.click();
+      activatePlatformMenuButton(button);
       await delay(isMax ? 900 : 350);
     }
     const rebuiltItems = subtitleMenuItems();
@@ -438,7 +486,7 @@
     }
     await delay(250);
     button = netflixMenuButton();
-    if (button && subtitleMenuItems().length) button.click();
+    if (button && subtitleMenuItems().length) activatePlatformMenuButton(button);
   }
 
   function getNetflixPrimaryLanguage() {
@@ -462,8 +510,13 @@
     const languages = new Map();
     const allTracks = [...tracks.values()];
     const hasMenuTracks = allTracks.some((track) => track.source === "menu");
+    const menuLanguages = new Set(allTracks
+      .filter((track) => track.source === "menu")
+      .map((track) => canonicalLanguage(track.label || track.language)));
     const optionTracks = hasMenuTracks
-      ? allTracks.filter((track) => track.source === "menu" || track.cues?.length)
+      ? allTracks.filter((track) => track.source === "menu"
+        || (track.cues?.length
+          && menuLanguages.has(canonicalLanguage(track.label || track.language))))
       : allTracks;
     for (const track of optionTracks) {
       const key = canonicalLanguage(track.label || track.language);
