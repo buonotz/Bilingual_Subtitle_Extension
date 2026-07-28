@@ -1,28 +1,54 @@
-# 流媒体双语字幕 Chrome 扩展
+# Streaming Bilingual Subtitles
 
-在 Netflix 或 Max 网页版保留当前官方字幕的同时，额外显示另一种已提供的官方字幕。
+A Chrome extension that displays a second official subtitle track alongside the
+subtitle already selected in Netflix or Max.
 
-## 安装
+The extension does not translate subtitles. Both subtitle tracks must be
+officially available for the current title, account, and region.
 
-1. 打开 `chrome://extensions/`。
-2. 开启右上角“开发者模式”。
-3. 点击“加载已解压的扩展程序”。
-4. 选择本项目文件夹 `Bilingual_Subtitle_Extension`。
-5. 重新打开 Netflix 或 Max 播放页面。
+## Supported platforms
 
-## 使用
+- Netflix web player
+- Max web player, including supported `hbomax.com` domains
 
-1. 在 Netflix 或 Max 播放器里照常选择第一种字幕。
-2. 移动鼠标，让播放器底部控制栏显示出来。
-3. 点击右上角“**双语字幕**”。扩展会短暂打开播放器的“音频与字幕”菜单并读取可用语言。
-4. 选择第二字幕语言。
+## Install for local testing
 
-扩展会读取当前视频的官方字幕语言目录。选择第二语言时，原字幕可能会短暂切换约一秒，以加载目标字幕，随后会自动恢复。
+1. Open `chrome://extensions/`.
+2. Enable **Developer mode**.
+3. Select **Load unpacked**.
+4. Choose this repository folder.
+5. Reload the Netflix or Max playback page.
 
-## 开发说明
+## Use
 
-- `page-bridge.js` 在页面主环境中捕获 Netflix 已请求的 timed-text 数据。
-- `content.js` 管理语言选择、时间同步和字幕显示。
-- 所有字幕均来自 Netflix 当前播放会话；扩展不调用翻译服务，也不保存字幕正文。
+1. Select the first subtitle normally in the streaming service.
+2. Open **Bilingual subtitles** in the upper-right corner.
+3. The extension briefly opens the platform subtitle menu to discover the
+   subtitle languages available for that title.
+4. Manually select the second subtitle in the extension.
 
-流媒体网站会持续调整播放器内部实现。若字幕响应格式或菜单结构发生变化，对应适配器也需要更新。
+Chrome displays a temporary debugging notification while the extension captures
+the selected official subtitle response. The debugger is disconnected
+automatically after capture.
+
+## Privacy
+
+Subtitle data is processed locally in the browser. The extension does not send
+subtitle text, browsing history, account data, or usage analytics to the
+developer or any third party. See [PRIVACY.md](PRIVACY.md).
+
+## Beta release
+
+Chrome Web Store submission materials are in [`store/`](store/). Run
+`powershell -ExecutionPolicy Bypass -File scripts/package-beta.ps1` to validate
+and create the upload ZIP after the required icons have been added.
+
+## Limitations
+
+- Available languages depend on the title, account, and region.
+- Streaming platforms can change their player UI or subtitle delivery format.
+- The extension does not bypass subscriptions, authentication, DRM, or regional
+  restrictions and does not download video.
+
+Netflix and Max are trademarks of their respective owners. This project is not
+affiliated with or endorsed by either service.

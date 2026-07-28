@@ -1,4 +1,5 @@
 {
+  "extensionNameBeta": { "message": "流媒体双语字幕 BETA" },
   "extensionName": { "message": "流媒体双语字幕" },
   "extensionDescription": { "message": "在 Netflix 和 Max 网页版显示第二条官方字幕。" },
   "bilingualSubtitles": { "message": "双语字幕" },

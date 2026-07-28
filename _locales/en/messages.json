@@ -1,5 +1,6 @@
 {
   "extensionName": { "message": "Streaming Bilingual Subtitles" },
+  "extensionNameBeta": { "message": "Streaming Bilingual Subtitles BETA" },
   "extensionDescription": { "message": "Display a second official subtitle track on Netflix and Max." },
   "bilingualSubtitles": { "message": "Bilingual subtitles" },
   "configureSecondarySubtitle": { "message": "Configure secondary subtitle" },
