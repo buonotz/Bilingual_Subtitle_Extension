@@ -27,5 +27,6 @@
   "subtitleTimeParseFailed": { "message": "A $1 subtitle response was captured, but its timing could not be parsed." },
   "newVideoDetected": { "message": "New video detected; reloading the second subtitle…" },
   "copyDiagnostics": { "message": "Copy diagnostics" },
-  "diagnosticsCopied": { "message": "Diagnostics copied" }
+  "diagnosticsCopied": { "message": "Diagnostics copied" },
+  "noTracksDiscovered": { "message": "Open $1's subtitle menu to discover this video's available languages." }
 }

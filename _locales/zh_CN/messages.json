@@ -27,5 +27,6 @@
   "subtitleTimeParseFailed": { "message": "捕获到 $1 字幕响应，但未能解析时间码" },
   "newVideoDetected": { "message": "检测到新视频，正在重新加载第二字幕…" },
   "copyDiagnostics": { "message": "复制诊断信息" },
-  "diagnosticsCopied": { "message": "诊断信息已复制" }
+  "diagnosticsCopied": { "message": "诊断信息已复制" },
+  "noTracksDiscovered": { "message": "请打开 $1 的字幕菜单，以读取当前视频可用的语言。" }
 }

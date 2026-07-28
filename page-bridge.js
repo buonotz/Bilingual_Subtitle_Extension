@@ -211,7 +211,9 @@
         source: "netflix-bilingual-subtitles",
         type: "parse-status",
         statusKey: "parseFailed",
-        format
+        format,
+        url,
+        sample: trimmed.slice(0, 3000)
       }, "*");
     }
     if (!cues.length) return;

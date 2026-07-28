@@ -5,16 +5,6 @@
   window.__nbsLoaded = true;
 
   const STORAGE_KEY = "nbsSecondaryLanguage";
-  const FALLBACK_LANGUAGES = [
-    ["zh-CN", "简体中文"], ["zh-TW", "繁體中文"], ["en", "English"],
-    ["de", "Deutsch"], ["es", "Español"], ["fr", "Français"],
-    ["it", "Italiano"], ["ja", "日本語"], ["ko", "한국어"],
-    ["pt", "Português"], ["ru", "Русский"], ["ar", "العربية"],
-    ["hi", "हिन्दी"], ["th", "ไทย"], ["vi", "Tiếng Việt"],
-    ["id", "Bahasa Indonesia"], ["tr", "Türkçe"], ["pl", "Polski"],
-    ["nl", "Nederlands"], ["sv", "Svenska"], ["da", "Dansk"],
-    ["no", "Norsk"], ["fi", "Suomi"]
-  ];
   const tracks = new Map();
   let selectedLanguage = "";
   let activeTrackId = "";
@@ -34,6 +24,13 @@
   const platformName = isMax ? "Max" : "Netflix";
 
   const normalize = (value) => String(value || "").trim().toLowerCase().replace("_", "-");
+  function canonicalLanguage(value) {
+    const key = normalize(value).replace(/[()[\]]/g, " ").replace(/\s+/g, " ").trim();
+    const words = key.replace(/[–—-]/g, " ").replace(/\s+/g, " ");
+    if (/^zh-(cn|hans)$/.test(key) || /^(chinese simplified|简体中文|中文 简体)$/.test(words)) return "zh-cn";
+    if (/^zh-(tw|hant)$/.test(key) || /^(chinese traditional|繁體中文|繁体中文|中文 繁體)$/.test(words)) return "zh-tw";
+    return key;
+  }
   const t = (key, substitutions) => chrome.i18n.getMessage(key, substitutions) || key;
 
   function createUi() {
@@ -155,7 +152,7 @@
     lastMenuSignature = signature;
     items.forEach((item, index) => {
       const label = itemLabel(item);
-      const language = normalize(label);
+      const language = canonicalLanguage(label);
       const id = `menu:${item.dataset.uia || item.dataset.testid || label || index}`;
       const previous = tracks.get(id);
       tracks.set(id, { id, language, label, cues: previous?.cues || [] });
@@ -190,9 +187,9 @@
       await delay(300);
     }
     const items = importNetflixMenu();
-    const wanted = normalize(language);
+    const wanted = canonicalLanguage(language);
     const target = items.find((item) => {
-      const label = normalize(itemLabel(item));
+      const label = canonicalLanguage(itemLabel(item));
       return label === wanted || label.startsWith(`${wanted} `) || wanted.startsWith(`${label} `);
     });
     if (!target) {
@@ -263,23 +260,20 @@
     const current = select.value;
     const languages = new Map();
     for (const track of tracks.values()) {
-      const key = normalize(track.language || track.label);
+      const key = canonicalLanguage(track.language || track.label);
       if (key && !languages.has(key)) languages.set(key, track.label || track.language || key);
     }
 
     select.replaceChildren(new Option(t("autoSelect"), ""));
-    FALLBACK_LANGUAGES.forEach(([value, label]) => {
-      const key = normalize(value);
-      if (!languages.has(key)) languages.set(key, label);
-    });
     [...languages].sort((a, b) => a[1].localeCompare(b[1])).forEach(([value, label]) => {
       select.add(new Option(label, value));
     });
-    select.value = languages.has(current) ? current : selectedLanguage;
+    const storedKey = canonicalLanguage(selectedLanguage);
+    select.value = languages.has(current) ? current : (languages.has(storedKey) ? storedKey : "");
     const loadedCount = [...tracks.values()].filter((track) => track.cues?.length).length;
     status.textContent = loadedCount
       ? t("tracksLoaded", String(loadedCount))
-      : t("selectLanguageHint");
+      : (languages.size ? t("selectLanguageHint") : t("noTracksDiscovered", platformName));
   }
 
   function chooseTrack() {
@@ -289,10 +283,10 @@
       return;
     }
 
-    const wanted = normalize(selectedLanguage);
+    const wanted = canonicalLanguage(selectedLanguage);
     const primary = getNetflixPrimaryLanguage();
     const exactChoice = available.find((track) => {
-      const lang = normalize(track.language || track.label);
+      const lang = canonicalLanguage(track.language || track.label);
       return wanted && (lang === wanted || lang.startsWith(`${wanted}-`));
     });
     if (wanted && !exactChoice) {
@@ -300,7 +294,7 @@
       return;
     }
     const chosen = exactChoice || available.find((track) => {
-      const lang = normalize(track.language || track.label);
+      const lang = canonicalLanguage(track.language || track.label);
       return !primary || (lang !== primary && !lang.startsWith(`${primary}-`));
     }) || available[0];
     activeTrackId = chosen.id;
@@ -446,6 +440,14 @@
       return;
     }
     if (event.data?.type === "parse-status") {
+      if (event.data.sample) {
+        lastDiagnostic = [
+          `platform=${platform}`,
+          `url=${event.data.url || ""}`,
+          `format=${event.data.format || "unknown"}`,
+          event.data.sample
+        ].join("\n");
+      }
       status.textContent = event.data.statusKey === "parsed"
         ? t("parsedSubtitleCues", String(event.data.count || 0))
         : t("subtitleTimeParseFailed", event.data.format || "unknown");
