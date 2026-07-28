@@ -76,6 +76,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         maxTotalBufferSize: 20_000_000,
         maxResourceBufferSize: 5_000_000
       });
+      await chrome.debugger.sendCommand({ tabId }, "Network.setCacheDisabled", {
+        cacheDisabled: true
+      });
       const session = {
         language: String(message.language || ""),
         platform: String(message.platform || ""),

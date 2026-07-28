@@ -155,6 +155,27 @@
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+  function activateMenuItem(item) {
+    const actionable = item.matches("button,[role='radio'],[role='option'],[role='menuitem'],[role='menuitemradio']")
+      ? item
+      : item.querySelector("button,[role='radio'],[role='option'],[role='menuitem'],[role='menuitemradio']")
+        || item;
+    actionable.scrollIntoView({ block: "nearest", inline: "nearest" });
+    actionable.focus?.({ preventScroll: true });
+    const eventOptions = { bubbles: true, cancelable: true, composed: true, view: window };
+    if (typeof PointerEvent === "function") {
+      actionable.dispatchEvent(new PointerEvent("pointerover", eventOptions));
+      actionable.dispatchEvent(new PointerEvent("pointerdown", { ...eventOptions, button: 0, buttons: 1 }));
+    }
+    actionable.dispatchEvent(new MouseEvent("mouseover", eventOptions));
+    actionable.dispatchEvent(new MouseEvent("mousedown", { ...eventOptions, button: 0, buttons: 1 }));
+    if (typeof PointerEvent === "function") {
+      actionable.dispatchEvent(new PointerEvent("pointerup", { ...eventOptions, button: 0 }));
+    }
+    actionable.dispatchEvent(new MouseEvent("mouseup", { ...eventOptions, button: 0 }));
+    actionable.click();
+  }
+
   function netflixMenuButton() {
     const selectors = isMax ? [
       "button[aria-label*='audio and subtitles' i]",
@@ -327,8 +348,8 @@
     const previousUia = previous.dataset.uia || "";
     const previousLabel = normalize(itemLabel(previous));
     await chrome.runtime.sendMessage({ type: "nbs-mark-target" }).catch(() => {});
-    target.click();
-    await delay(1500);
+    activateMenuItem(target);
+    await delay(isMax ? 2600 : 1500);
 
     await chrome.runtime.sendMessage({ type: "nbs-end-target" }).catch(() => {});
     window.postMessage({
