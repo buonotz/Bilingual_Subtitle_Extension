@@ -4,7 +4,6 @@
   if (window.top !== window || window.__nbsLoaded) return;
   window.__nbsLoaded = true;
 
-  const STORAGE_KEY = "nbsSecondaryLanguage";
   const tracks = new Map();
   let selectedLanguage = "";
   let activeTrackId = "";
@@ -17,8 +16,6 @@
   let menuDiscoveryRunning = false;
   let lastMenuSignature = "";
   let contentKey = "";
-  let reloadTimer = 0;
-  let autoLoadKey = "";
   let lastDiagnostic = "";
   let trackStatusText = "";
   let activeTimeline = null;
@@ -119,7 +116,6 @@
     select.addEventListener("change", async () => {
       selectedLanguage = select.value;
       activeTrackId = "";
-      chrome.storage.local.set({ [STORAGE_KEY]: selectedLanguage });
       if (selectedLanguage) {
         const capture = await chrome.runtime.sendMessage({
           type: "nbs-start-capture",
@@ -319,8 +315,7 @@
 
   async function discoverNetflixTracks() {
     if (menuDiscoveryRunning || subtitleMenuItems().length) {
-      const items = importNetflixMenu();
-      if (!menuDiscoveryRunning && items.length) maybeAutoLoadStoredSelection();
+      importNetflixMenu();
       return;
     }
     const button = netflixMenuButton();
@@ -332,34 +327,11 @@
     button.click();
     await delay(isMax ? 900 : 350);
     const items = importNetflixMenu();
+    button.click();
     menuDiscoveryRunning = false;
     if (!items.length) {
-      button.click();
       status.textContent = t("openPlatformSubtitleMenu", platformName);
-    } else if (selectedLanguage && select?.value) {
-      // Keep Max's freshly discovered subtitle menu open. Closing and reopening
-      // it immediately races its React state update and leaves the old language
-      // selected even though our select already shows the restored preference.
-      maybeAutoLoadStoredSelection();
-    } else {
-      button.click();
     }
-  }
-
-  function maybeAutoLoadStoredSelection() {
-    const wanted = canonicalLanguage(selectedLanguage);
-    if (!wanted || !select?.value) return;
-    const alreadyLoaded = [...tracks.values()].some((track) => {
-      const language = canonicalLanguage(track.language || track.label);
-      return track.cues?.length && (language === wanted || language.startsWith(`${wanted}-`));
-    });
-    const key = `${currentContentKey()}|${wanted}`;
-    if (alreadyLoaded || autoLoadKey === key) return;
-    autoLoadKey = key;
-    setTimeout(() => {
-      if (!select?.isConnected || canonicalLanguage(select.value) !== wanted) return;
-      select.dispatchEvent(new Event("change"));
-    }, isMax ? 400 : 100);
   }
 
   async function loadViaNetflixMenu(language) {
@@ -628,19 +600,9 @@
     trackStatusText = "";
     activeTimeline = null;
     lastMenuSignature = "";
-    autoLoadKey = "";
+    selectedLanguage = "";
     subtitle.hidden = true;
     refreshOptions();
-    if (!selectedLanguage) return;
-
-    clearTimeout(reloadTimer);
-    status.textContent = t("newVideoDetected");
-    reloadTimer = setTimeout(() => {
-      if (select && selectedLanguage) {
-        select.value = selectedLanguage;
-        select.dispatchEvent(new Event("change"));
-      }
-    }, 1800);
   }
 
   function importNativeTracks() {
@@ -765,10 +727,7 @@
     render();
   }
 
-  chrome.storage.local.get(STORAGE_KEY, (value) => {
-    selectedLanguage = value[STORAGE_KEY] || "";
-    tick();
-  });
+  tick();
   window.addEventListener("resize", render, { passive: true });
   document.addEventListener("fullscreenchange", mountUiForFullscreen);
   document.addEventListener("webkitfullscreenchange", mountUiForFullscreen);
