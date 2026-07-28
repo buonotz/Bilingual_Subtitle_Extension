@@ -16,8 +16,10 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
       && (/vtt|ttml|xml|application\/mp4/.test(mime)
         || /\/t\/[^?]*\.mp4(?:\?|$)|subtitle|caption|timed.?text|\.vtt(?:\?|$)|\.ttml(?:\?|$)/i.test(url));
     const likelySubtitle = netflixResource || maxResource;
-    const inTargetWindow = session.targetStartedAt
-      && Date.now() - session.targetStartedAt < 3000;
+    const elapsedSinceTarget = session.targetStartedAt
+      ? Date.now() - session.targetStartedAt
+      : -1;
+    const inTargetWindow = elapsedSinceTarget >= 250 && elapsedSinceTarget < 3500;
     if (likelySubtitle && inTargetWindow) {
       session.requests.set(params.requestId, { url, mime });
     }

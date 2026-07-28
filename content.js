@@ -400,7 +400,9 @@
   }
 
   function chooseTrack() {
-    const available = [...tracks.values()].filter((track) => track.cues?.length);
+    const available = [...tracks.values()].filter((track) =>
+      track.cues?.length && !track.duplicateOfPrimary
+    );
     if (!available.length) {
       activeTrackId = "";
       return;
@@ -479,9 +481,7 @@
       lastText = "";
       return;
     }
-    const netflixText = [...document.querySelectorAll(nativeSubtitleSelector())]
-      .filter((node) => node !== panel && !panel?.contains(node) && node !== subtitle)
-      .map((node) => node.textContent || "").join(" ").replace(/\s+/g, " ").trim();
+    const netflixText = currentNativeSubtitleText();
     const normalizedCue = text.replace(/\s+/g, " ").trim();
     if (netflixText && (netflixText === normalizedCue || netflixText.includes(normalizedCue))) {
       subtitle.hidden = true;
@@ -494,6 +494,12 @@
       lastText = text;
     }
     subtitle.hidden = false;
+  }
+
+  function currentNativeSubtitleText() {
+    return [...document.querySelectorAll(nativeSubtitleSelector())]
+      .filter((node) => node !== panel && !panel?.contains(node) && node !== subtitle)
+      .map((node) => node.textContent || "").join(" ").replace(/\s+/g, " ").trim();
   }
 
   function positionAboveNetflixSubtitle() {
@@ -617,11 +623,28 @@
     const detail = event.data.track;
     if (!detail?.id || !Array.isArray(detail.cues) || !detail.cues.length) return;
     const normalizedCues = normalizeCueTimeScale(detail.cues);
-    tracks.set(detail.id, { ...detail, cues: normalizedCues, source: "captured" });
+    const cueNow = activeCue(normalizedCues, video?.currentTime || 0);
+    const nativeText = currentNativeSubtitleText();
+    const cueNowText = cueNow?.text?.replace(/\s+/g, " ").trim() || "";
+    const duplicateOfPrimary = Boolean(nativeText && cueNowText
+      && (nativeText === cueNowText || nativeText.includes(cueNowText)));
+    tracks.set(detail.id, {
+      ...detail,
+      cues: normalizedCues,
+      source: "captured",
+      duplicateOfPrimary
+    });
     const diagnosticButton = panel.querySelector("#nbs-copy-diagnostic");
     if (diagnosticButton) diagnosticButton.hidden = !lastDiagnostic;
     refreshOptions();
-    chooseTrack();
+    const capturedLanguage = canonicalLanguage(detail.language || detail.label);
+    const wantedLanguage = canonicalLanguage(selectedLanguage);
+    if (!duplicateOfPrimary && wantedLanguage && (capturedLanguage === wantedLanguage
+      || capturedLanguage.startsWith(`${wantedLanguage}-`))) {
+      activeTrackId = detail.id;
+    } else {
+      chooseTrack();
+    }
     const firstCue = normalizedCues[0];
     const lastCue = normalizedCues[normalizedCues.length - 1];
     activeTimeline = {
