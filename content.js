@@ -26,6 +26,8 @@
   let video;
   let menuDiscoveryRunning = false;
   let lastMenuSignature = "";
+  let contentKey = "";
+  let reloadTimer = 0;
   const isMax = /(^|\.)max\.com$|(^|\.)hbomax\.com$/i.test(location.hostname);
   const platform = isMax ? "max" : "netflix";
   const platformName = isMax ? "Max" : "Netflix";
@@ -363,12 +365,48 @@
   }
 
   function bindVideo() {
-    const next = [...document.querySelectorAll("video")].find((item) => item.duration || item.readyState);
+    const next = [...document.querySelectorAll("video")]
+      .filter((item) => item.duration || item.readyState)
+      .sort((a, b) => {
+        const score = (item) => (item.paused ? 0 : 1_000_000)
+          + item.clientWidth * item.clientHeight;
+        return score(b) - score(a);
+      })[0];
     if (!next || next === video) return;
     video = next;
     video.addEventListener("timeupdate", render, { passive: true });
     video.addEventListener("seeking", render, { passive: true });
     video.addEventListener("play", render, { passive: true });
+  }
+
+  function currentContentKey() {
+    const source = video?.currentSrc || video?.src || "";
+    return `${location.pathname}|${source.slice(0, 180)}`;
+  }
+
+  function handleContentChange() {
+    if (!video) return;
+    const nextKey = currentContentKey();
+    if (!nextKey || nextKey === contentKey) return;
+    const isFirstContent = !contentKey;
+    contentKey = nextKey;
+    if (isFirstContent) return;
+    tracks.clear();
+    activeTrackId = "";
+    lastText = "";
+    lastMenuSignature = "";
+    subtitle.hidden = true;
+    refreshOptions();
+    if (!selectedLanguage) return;
+
+    clearTimeout(reloadTimer);
+    status.textContent = t("newVideoDetected");
+    reloadTimer = setTimeout(() => {
+      if (select && selectedLanguage) {
+        select.value = selectedLanguage;
+        select.dispatchEvent(new Event("change"));
+      }
+    }, 1800);
   }
 
   function importNativeTracks() {
@@ -439,6 +477,7 @@
   function tick() {
     createUi();
     bindVideo();
+    handleContentChange();
     importNetflixMenu();
     importNativeTracks();
     if (!activeTrackId) chooseTrack();

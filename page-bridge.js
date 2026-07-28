@@ -42,7 +42,8 @@
 
   function parseVtt(text) {
     const cues = [];
-    const blocks = text.replace(/\r/g, "").split(/\n{2,}/);
+    const normalized = text.replace(/\r/g, "").replace(/\\r?\\n/g, "\n");
+    const blocks = normalized.split(/\n{2,}/);
     for (const block of blocks) {
       const lines = block.split("\n");
       const timingIndex = lines.findIndex((line) => line.includes("-->"));
@@ -52,6 +53,28 @@
       const end = seconds(to);
       const cueText = cleanText(lines.slice(timingIndex + 1).join("\n"));
       if (Number.isFinite(start) && Number.isFinite(end) && cueText) cues.push({ start, end, text: cueText });
+    }
+    if (cues.length) return cues;
+
+    // Some Max WebVTT segments omit blank lines between cues. Parse timing
+    // lines directly and collect text until the next timing line.
+    const lines = normalized.split("\n");
+    for (let index = 0; index < lines.length; index += 1) {
+      if (!lines[index].includes("-->")) continue;
+      const [from, to] = lines[index].split("-->").map((part) => part.trim().split(/\s/)[0]);
+      const start = seconds(from);
+      const end = seconds(to);
+      const textLines = [];
+      for (let next = index + 1; next < lines.length; next += 1) {
+        if (lines[next].includes("-->")) break;
+        if (/^(WEBVTT|NOTE|STYLE|REGION)\b/.test(lines[next])) continue;
+        if (lines[next].trim()) textLines.push(lines[next]);
+        index = next;
+      }
+      const cueText = cleanText(textLines.join("\n"));
+      if (Number.isFinite(start) && Number.isFinite(end) && cueText) {
+        cues.push({ start, end, text: cueText });
+      }
     }
     return cues;
   }
