@@ -191,9 +191,41 @@
       "button[aria-label*='字幕']",
       "button[aria-label*='Untertitel' i]"
     ];
-    return selectors
+    const matches = selectors
       .flatMap((selector) => isMax ? deepQueryAll(selector) : [document.querySelector(selector)])
-      .find(Boolean);
+      .filter(Boolean);
+    if (!isMax) return matches[0];
+    return matches.find((element) => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return rect.width > 0 && rect.height > 0
+        && style.display !== "none" && style.visibility !== "hidden";
+    });
+  }
+
+  async function wakeMaxControls() {
+    if (!isMax) return;
+    const target = video || document.querySelector("video") || document.documentElement;
+    const rect = target.getBoundingClientRect();
+    const clientX = rect.left + Math.max(1, rect.width / 2);
+    const clientY = rect.top + Math.max(1, rect.height / 2);
+    const options = {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      clientX,
+      clientY
+    };
+    if (typeof PointerEvent === "function") {
+      target.dispatchEvent(new PointerEvent("pointermove", {
+        ...options,
+        pointerType: "mouse",
+        isPrimary: true
+      }));
+    }
+    target.dispatchEvent(new MouseEvent("mousemove", options));
+    await delay(450);
   }
 
   function subtitleMenuItems() {
@@ -318,7 +350,11 @@
       importNetflixMenu();
       return;
     }
-    const button = netflixMenuButton();
+    let button = netflixMenuButton();
+    if (!button && isMax) {
+      await wakeMaxControls();
+      button = netflixMenuButton();
+    }
     if (!button) {
       status.textContent = t("controlsNotFound");
       return;
@@ -336,6 +372,10 @@
 
   async function loadViaNetflixMenu(language) {
     let button = netflixMenuButton();
+    if (!subtitleMenuItems().length && !button && isMax) {
+      await wakeMaxControls();
+      button = netflixMenuButton();
+    }
     if (!subtitleMenuItems().length && button) {
       button.click();
       await delay(isMax ? 900 : 300);
