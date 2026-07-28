@@ -202,14 +202,30 @@
   function subtitleMenuItems() {
     let candidates;
     if (isMax) {
-      const selector = [
-        "[role='dialog'] [role='radio']",
-        "[role='dialog'] [role='option']",
-        "[role='menu'] [role='menuitemradio']",
+      const subtitleWords = /subtitles?|captions?|untertitel|sous-titres|subtítulos|sottotitoli|字幕/i;
+      const optionSelector = [
+        "[role='radio']",
+        "[role='option']",
+        "[role='menuitemradio']",
         "[data-testid*='subtitle-option' i]",
         "[data-testid*='caption-option' i]"
       ].join(",");
-      candidates = deepQueryAll(selector);
+      const labelledGroups = deepQueryAll(
+        "[role='radiogroup'],[role='group'],[role='listbox'],fieldset"
+      ).filter((group) => {
+        const labelledBy = group.getAttribute("aria-labelledby");
+        const groupRoot = group.getRootNode();
+        const labelledText = labelledBy
+          ? labelledBy.split(/\s+/).map((id) =>
+              groupRoot.getElementById?.(id)?.textContent
+              || document.getElementById(id)?.textContent
+              || ""
+            ).join(" ")
+          : "";
+        const label = `${group.getAttribute("aria-label") || ""} ${labelledText}`;
+        return subtitleWords.test(label);
+      });
+      candidates = labelledGroups.flatMap((group) => [...group.querySelectorAll(optionSelector)]);
 
       if (!candidates.length) {
         const headings = deepQueryAll("h1,h2,h3,h4,h5,[role='heading'],span,div")
@@ -338,6 +354,7 @@
     }
     const previous = items.find((item) =>
       item.getAttribute("aria-selected") === "true"
+      || item.getAttribute("aria-checked") === "true"
       || item.querySelector("[aria-checked='true'], [data-uia*='selected']")
     );
     if (!previous) {
