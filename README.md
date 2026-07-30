@@ -6,6 +6,10 @@ subtitle already selected in Netflix or Max.
 The extension does not translate subtitles. Both subtitle tracks must be
 officially available for the current title, account, and region.
 
+## Install from Chrome Web Store
+
+[Install Streaming Bilingual Subtitles BETA](https://chromewebstore.google.com/detail/streaming-bilingual-subti/nmfpfghjmjekknbbilcpiioohkdjimfo)
+
 ## Supported platforms
 
 - Netflix web player
