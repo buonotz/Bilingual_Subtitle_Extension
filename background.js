@@ -19,7 +19,7 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const elapsedSinceTarget = session.targetStartedAt
       ? Date.now() - session.targetStartedAt
       : -1;
-    const inTargetWindow = elapsedSinceTarget >= 250 && elapsedSinceTarget < 20000;
+    const inTargetWindow = elapsedSinceTarget >= 0 && elapsedSinceTarget < 20000;
     if (likelySubtitle && inTargetWindow) {
       session.requests.set(params.requestId, { url, mime });
     }
