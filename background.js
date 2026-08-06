@@ -19,7 +19,7 @@ chrome.debugger.onEvent.addListener(async (source, method, params) => {
     const elapsedSinceTarget = session.targetStartedAt
       ? Date.now() - session.targetStartedAt
       : -1;
-    const inTargetWindow = elapsedSinceTarget >= 250 && elapsedSinceTarget < 3500;
+    const inTargetWindow = elapsedSinceTarget >= 250 && elapsedSinceTarget < 20000;
     if (likelySubtitle && inTargetWindow) {
       session.requests.set(params.requestId, { url, mime });
     }
@@ -84,7 +84,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         platform: String(message.platform || ""),
         requests: new Map(),
         targetStartedAt: 0,
-        timer: setTimeout(() => stopCapture(tabId), 10_000)
+        timer: setTimeout(() => stopCapture(tabId), 25_000)
       };
       sessions.set(tabId, session);
       sendResponse({ ok: true });

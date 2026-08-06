@@ -19,6 +19,7 @@
   let lastDiagnostic = "";
   let trackStatusText = "";
   let activeTimeline = null;
+  let pendingTargetCapture = null;
   const isMax = /(^|\.)max\.com$|(^|\.)hbomax\.com$/i.test(location.hostname);
   const platform = isMax ? "max" : "netflix";
   const platformName = isMax ? "Max" : "Netflix";
@@ -153,6 +154,31 @@
   }
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function waitForTargetTrack(language, timeoutMs) {
+    if (pendingTargetCapture) {
+      clearTimeout(pendingTargetCapture.timer);
+      pendingTargetCapture.resolve(false);
+    }
+    const wanted = canonicalLanguage(language);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        if (pendingTargetCapture?.resolve === resolve) pendingTargetCapture = null;
+        resolve(false);
+      }, timeoutMs);
+      pendingTargetCapture = { wanted, resolve, timer };
+    });
+  }
+
+  function signalTargetTrack(language) {
+    if (!pendingTargetCapture) return;
+    const captured = canonicalLanguage(language);
+    const { wanted, resolve, timer } = pendingTargetCapture;
+    if (captured !== wanted && !captured.startsWith(`${wanted}-`)) return;
+    pendingTargetCapture = null;
+    clearTimeout(timer);
+    resolve(true);
+  }
 
   function activateMenuItem(item) {
     const actionable = item.matches("button,[role='radio'],[role='option'],[role='menuitem'],[role='menuitemradio']")
@@ -452,8 +478,9 @@
     const previousUia = previous.dataset.uia || "";
     const previousLabel = normalize(itemLabel(previous));
     await chrome.runtime.sendMessage({ type: "nbs-mark-target" }).catch(() => {});
+    const targetTrackReady = waitForTargetTrack(wanted, isMax ? 15000 : 5000);
     activateMenuItem(target);
-    await delay(isMax ? 2600 : 1500);
+    await targetTrackReady;
 
     await chrome.runtime.sendMessage({ type: "nbs-end-target" }).catch(() => {});
     window.postMessage({
@@ -749,6 +776,7 @@
     if (event.data?.type !== "track") return;
     const detail = event.data.track;
     if (!detail?.id || !Array.isArray(detail.cues) || !detail.cues.length) return;
+    signalTargetTrack(detail.language || detail.label);
     const normalizedCues = normalizeCueTimeScale(detail.cues);
     const cueNow = activeCue(normalizedCues, video?.currentTime || 0);
     const nativeText = currentNativeSubtitleText();
